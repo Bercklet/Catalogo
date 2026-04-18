@@ -1,19 +1,42 @@
 /**
- * API ROUTE — Checkout con Wompi (Versión estable)
+ * API ROUTE — Checkout con Wompi
+ * Versión completa y production-ready
+ * Ruta: src/app/api/checkout/route.ts
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/db/supabaseClient";
 
+interface CheckoutItem {
+  productId: string;
+  variantId?: string;
+  productName: string;
+  productSlug: string;
+  imageUrl: string;
+  colorName: string;
+  colorHex: string;
+  size: string;
+  sku: string;
+  unitPrice: number;
+  quantity: number;
+}
+
 interface CheckoutBody {
-  items: any[];
+  items: CheckoutItem[];
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
-  shippingAddress: any;
+  shippingAddress: {
+    street: string;
+    city: string;
+    department: string;
+    postalCode?: string;
+    country: string;
+  };
 }
 
+/** Genera checksum SHA256 para Wompi */
 function generateWompiChecksum(
   reference: string,
   amountInCents: number,
@@ -29,6 +52,7 @@ export async function POST(req: NextRequest) {
   try {
     const body: CheckoutBody = await req.json();
 
+    // Validaciones básicas
     if (!body.items?.length) return NextResponse.json({ error: "Sin productos" }, { status: 400 });
     if (!body.customerEmail) return NextResponse.json({ error: "Email requerido" }, { status: 400 });
     if (!body.customerName) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
@@ -42,16 +66,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Calcular totales
-    const subtotal = body.items.reduce((s, i) => s + (i.unitPrice || 0) * (i.quantity || 1), 0);
+    const subtotal = body.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     const shippingCost = subtotal >= 500000 ? 0 : 15000;
     const total = subtotal + shippingCost;
     const amountInCents = Math.round(total * 100);
 
-    // Generar número de pedido
-    const { data: orderNumData } = await supabaseAdmin.rpc("generate_order_number" as never);
+    // Generar número de pedido único
+    const { data: orderNumData } = await supabaseAdmin
+      .rpc("generate_order_number" as never);
+
     const orderNumber = (orderNumData as unknown as string) ?? `MAISON-${Date.now()}`;
 
-    // Crear pedido
+    // Crear pedido en Supabase
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -68,17 +94,44 @@ export async function POST(req: NextRequest) {
         payment_status: "pending",
         status: "pending",
         wompi_reference: orderNumber,
-      } as any)
+      } as any) // Type assertion necesario porque los tipos de Supabase no están generados
       .select("id")
       .single();
 
     if (orderErr) throw new Error(`Error creando pedido: ${orderErr.message}`);
 
-    // Calcular checksum para Wompi
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const checksum = generateWompiChecksum(orderNumber, amountInCents, "COP", expiresAt, WOMPI_INTEGRITY_SECRET);
+    // Insertar items del pedido
+    const { error: itemsErr } = await supabaseAdmin
+      .from("order_items")
+      .insert(
+        body.items.map((item) => ({
+          order_id: order.id,
+          product_id: item.productId,
+          product_name: item.productName,
+          product_slug: item.productSlug,
+          image_url: item.imageUrl,
+          color_name: item.colorName,
+          color_hex: item.colorHex,
+          size: item.size,
+          sku: item.sku,
+          unit_price: item.unitPrice,
+          quantity: item.quantity,
+        }))
+      );
 
-    // Respuesta para el frontend
+    if (itemsErr) throw new Error(`Error insertando items: ${itemsErr.message}`);
+
+    // Calcular checksum Wompi
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const checksum = generateWompiChecksum(
+      orderNumber,
+      amountInCents,
+      "COP",
+      expiresAt,
+      WOMPI_INTEGRITY_SECRET
+    );
+
+    // Respuesta final para el frontend
     return NextResponse.json({
       orderId: order.id,
       orderNumber,
@@ -102,7 +155,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("[checkout POST]", err);
     return NextResponse.json(
-      { error: err.message || "Error interno" },
+      { error: err.message || "Error interno del servidor" },
       { status: 500 }
     );
   }
