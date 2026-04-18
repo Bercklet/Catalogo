@@ -2,21 +2,6 @@
  * API ROUTE — Checkout con Wompi
  * --------------------------------
  * Ruta: src/app/api/checkout/route.ts
- *
- * Variables requeridas en .env.local:
- *   WOMPI_PUBLIC_KEY=pub_test_XXXXXXXX        ← Dashboard Wompi → Llaves API
- *   WOMPI_PRIVATE_KEY=prv_test_XXXXXXXX       ← Dashboard Wompi → Llaves API
- *   WOMPI_INTEGRITY_SECRET=test_integrity_XXX ← Dashboard Wompi → Eventos
- *   NEXT_PUBLIC_SITE_URL=https://tu-dominio.com
- *
- * Flujo completo:
- * 1. Frontend POST /api/checkout con los ítems del carrito
- * 2. Esta ruta crea el pedido en Supabase (status: pending)
- * 3. Calcula el checksum de integridad (SHA256)
- * 4. Devuelve los datos para inicializar el widget de Wompi
- * 5. El usuario paga en el widget embebido
- * 6. Wompi llama al webhook POST /api/checkout/webhook
- * 7. El webhook actualiza el estado del pedido en Supabase
  */
 
 import { NextRequest, NextResponse }  from "next/server";
@@ -51,7 +36,7 @@ interface CheckoutBody {
   };
 }
 
-/** Genera el checksum SHA256 requerido por Wompi para verificar integridad */
+/** Genera el checksum SHA256 requerido por Wompi */
 function generateWompiChecksum(
   reference:       string,
   amountInCents:   number,
@@ -68,7 +53,6 @@ export async function POST(req: NextRequest) {
   try {
     const body: CheckoutBody = await req.json();
 
-    // Validación básica
     if (!body.items?.length)        return NextResponse.json({ error: "Sin productos" }, { status: 400 });
     if (!body.customerEmail)        return NextResponse.json({ error: "Email requerido" }, { status: 400 });
     if (!body.customerName)         return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
@@ -83,9 +67,9 @@ export async function POST(req: NextRequest) {
 
     // ——— Calcular totales ———
     const subtotal      = body.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-    const shippingCost  = subtotal >= 500000 ? 0 : 15000; // Envío gratis > $500k COP
+    const shippingCost  = subtotal >= 500000 ? 0 : 15000;
     const total         = subtotal + shippingCost;
-    const amountInCents = Math.round(total * 100); // Wompi usa centavos
+    const amountInCents = Math.round(total * 100);
 
     // ——— Generar número de pedido único ———
     const { data: orderNumData } = await supabaseAdmin
@@ -139,7 +123,7 @@ export async function POST(req: NextRequest) {
     if (itemsErr) throw new Error(`Error insertando ítems: ${itemsErr.message}`);
 
     // ——— Calcular checksum de integridad Wompi ———
-    const expiresAt  = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutos
+    const expiresAt  = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     const checksum   = generateWompiChecksum(
       orderNumber,
       amountInCents,
@@ -152,7 +136,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       orderId:      order.id,
       orderNumber,
-      // Datos para inicializar window.WidgetCheckout de Wompi
       wompi: {
         publicKey:      WOMPI_PUBLIC_KEY,
         currency:       "COP",
