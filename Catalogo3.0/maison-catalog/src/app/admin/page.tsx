@@ -5,9 +5,8 @@
  * métricas clave y acceso al formulario de creación/edición.
  *
  * ⚠️ En producción, protege esta ruta con autenticación
- *    (Supabase Auth, NextAuth, Clerk, etc.)
+ * (Supabase Auth, NextAuth, Clerk, etc.)
  */
-
 import Link from "next/link";
 import type { Metadata } from "next";
 import { mockProducts } from "@/constants/mockData";
@@ -15,21 +14,21 @@ import { formatPrice } from "@/lib/utils/format";
 import { brandConfig } from "@/brand.config";
 
 export const metadata: Metadata = {
-  title: `Admin — ${brandConfig.brand.name}`,
+  title: `Admin — ${brandConfig.name}`,
   robots: { index: false, follow: false }, // No indexar el admin
 };
 
 function getStockStatus(totalStock: number) {
-  if (totalStock === 0)   return { label: "Agotado",     className: "bg-red-50 text-status-error border border-red-100" };
-  if (totalStock <= 10)   return { label: "Stock bajo",  className: "bg-amber-50 text-status-warning border border-amber-100" };
-  return                         { label: "Disponible",  className: "bg-green-50 text-status-success border border-green-100" };
+  if (totalStock === 0) return { label: "Agotado", className: "bg-red-50 text-status-error border border-red-100" };
+  if (totalStock <= 10) return { label: "Stock bajo", className: "bg-amber-50 text-status-warning border border-amber-100" };
+  return { label: "Disponible", className: "bg-green-50 text-status-success border border-green-100" };
 }
 
 export default function AdminPage() {
   /* Métricas calculadas server-side */
-  const totalProducts   = mockProducts.length;
-  const activeProducts  = mockProducts.filter((p) => p.isActive).length;
-  const outOfStock      = mockProducts.filter((p) => p.variants.every((v) => v.stock === 0)).length;
+  const totalProducts = mockProducts.length;
+  const activeProducts = mockProducts.filter((p) => p.isActive).length;
+  const outOfStock = mockProducts.filter((p) => p.variants.every((v) => v.stock === 0)).length;
   const totalStockValue = mockProducts.reduce((sum, p) => {
     const units = p.variants.reduce((s, v) => s + v.stock, 0);
     return sum + p.price * units;
@@ -37,7 +36,6 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
       {/* ——— Header ——— */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -55,10 +53,10 @@ export default function AdminPage() {
       {/* ——— Métricas ——— */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Total productos",    value: totalProducts },
-          { label: "Activos",            value: activeProducts },
-          { label: "Agotados",           value: outOfStock,    alert: outOfStock > 0 },
-          { label: "Valor en stock",     value: formatPrice(totalStockValue, brandConfig.brand.currency), small: true },
+          { label: "Total productos", value: totalProducts },
+          { label: "Activos", value: activeProducts },
+          { label: "Agotados", value: outOfStock, alert: outOfStock > 0 },
+          { label: "Valor en stock", value: formatPrice(totalStockValue, brandConfig.currency), small: true },
         ].map(({ label, value, alert, small }) => (
           <div
             key={label}
@@ -86,8 +84,8 @@ export default function AdminPage() {
         {/* Filas */}
         {mockProducts.map((product) => {
           const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
-          const status     = getStockStatus(totalStock);
-          const mainImage  = product.images.find((img) => img.position === 0);
+          const status = getStockStatus(totalStock);
+          const mainImage = product.images.find((img) => img.position === 0);
 
           return (
             <div
@@ -113,18 +111,18 @@ export default function AdminPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-brand-primary truncate">{product.name}</p>
-                  <p className="text-xs text-brand-muted">{product.category.name}</p>
+                  <p className="text-xs text-brand-muted">{product.category?.name || "Sin categoría"}</p>
                 </div>
               </div>
 
               {/* Precio */}
               <div className="text-right">
                 <p className="text-sm text-brand-primary">
-                  {formatPrice(product.price, product.currency)}
+                  {formatPrice(product.price, product.currency || brandConfig.currency)}
                 </p>
                 {product.compareAtPrice && (
                   <p className="text-xs text-brand-muted line-through">
-                    {formatPrice(product.compareAtPrice, product.currency)}
+                    {formatPrice(product.compareAtPrice, product.currency || brandConfig.currency)}
                   </p>
                 )}
               </div>
