@@ -1,19 +1,8 @@
 "use client";
-
 /**
  * PÁGINA DE LOGIN — Panel de administración
  * ------------------------------------------
  * Ruta: src/app/admin/login/page.tsx
- *
- * Flujo de autenticación:
- * 1. Admin ingresa email + contraseña
- * 2. Supabase verifica credenciales
- * 3. Si correcto → cookie de sesión → redirect a /admin
- * 4. Si incorrecto → mensaje de error
- *
- * Para crear el admin en Supabase:
- *   Dashboard → Authentication → Users → Add user
- *   Email: tu@email.com | Password: contraseña-segura
  */
 
 import { useState } from "react";
@@ -23,14 +12,14 @@ import { brandConfig } from "@/brand.config";
 import type { Database } from "@/types/database";
 
 export default function AdminLoginPage() {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo   = searchParams.get("redirect") ?? "/admin";
+  const redirectTo = searchParams.get("redirect") ?? "/admin";
 
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const supabase = createClientComponentClient<Database>();
 
@@ -40,7 +29,7 @@ export default function AdminLoginPage() {
     setError(null);
 
     const { error: authError } = await supabase.auth.signInWithPassword({
-      email:    email.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
       password,
     });
 
@@ -54,19 +43,18 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Login exitoso → ir al panel
+    // Login exitoso
     router.push(redirectTo);
-    router.refresh(); // Forzar revalidación del middleware
+    router.refresh();
   };
 
   return (
     <div className="min-h-screen bg-brand-secondary flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-
-        {/* Logo */}
+        {/* Logo / Header */}
         <div className="text-center mb-10">
           <h1 className="font-display text-3xl font-light tracking-[0.2em] text-brand-primary mb-1">
-            {brandConfig.brand.name}
+            {brandConfig.name}
           </h1>
           <p className="text-xs text-brand-muted tracking-widest uppercase">
             Panel de administración
@@ -76,7 +64,6 @@ export default function AdminLoginPage() {
         {/* Formulario */}
         <div className="bg-white border border-brand-border rounded-xl p-8">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-
             {/* Error */}
             {error && (
               <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-md">
@@ -130,7 +117,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-xs text-brand-muted mt-6">
-          Solo personal autorizado de {brandConfig.brand.name}
+          Solo personal autorizado de {brandConfig.name}
         </p>
       </div>
     </div>
