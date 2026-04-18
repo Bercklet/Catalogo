@@ -90,10 +90,10 @@ export async function POST(req: NextRequest) {
     // ——— Generar número de pedido único ———
     const { data: orderNumData } = await supabaseAdmin
       .rpc("generate_order_number" as never);
-    const orderNumber = (orderNumData as string) ?? `MAISON-${Date.now()}`;
+    const orderNumber = (orderNumData as string ) ?? `MAISON-${Date.now()}`;
 
     // ——— Crear pedido en Supabase (status: pending) ———
-    const { data: order, error: orderErr } = await supabaseAdmin
+    const orderNumber = (orderNumData as unknown as string) ?? `MAISON-${Date.now()}`;
       .from("orders")
       .insert({
         order_number:     orderNumber,
