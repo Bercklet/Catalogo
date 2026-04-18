@@ -59,7 +59,7 @@ function generateWompiChecksum(
   expirationTime:  string,
   integritySecret: string
 ): string {
-  const raw = `${reference}${amountInCents}${currency}${expirationTime}${integritySecret}`;
+  const raw = `\( {reference} \){amountInCents}\( {currency} \){expirationTime}${integritySecret}`;
   return createHash("sha256").update(raw).digest("hex");
 }
 
@@ -90,10 +90,11 @@ export async function POST(req: NextRequest) {
     // ——— Generar número de pedido único ———
     const { data: orderNumData } = await supabaseAdmin
       .rpc("generate_order_number" as never);
-    const orderNumber = (orderNumData as string ) ?? `MAISON-${Date.now()}`;
+
+    const orderNumber = (orderNumData as unknown as string) ?? `MAISON-${Date.now()}`;
 
     // ——— Crear pedido en Supabase (status: pending) ———
-    const orderNumber = (orderNumData as unknown as string) ?? `MAISON-${Date.now()}`;
+    const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
         order_number:     orderNumber,
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         currency:         "COP",
         payment_status:   "pending",
         status:           "pending",
-        wompi_reference:  orderNumber, // Wompi usa esto como referencia
+        wompi_reference:  orderNumber,
       })
       .select("id")
       .single();
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
           phoneNumber:  body.customerPhone ?? "",
           phoneNumberPrefix: "+57",
         },
-        redirectUrl: `${SITE_URL}/order/confirmation?ref=${orderNumber}`,
+        redirectUrl: `\( {SITE_URL}/order/confirmation?ref= \){orderNumber}`,
       },
     });
 
